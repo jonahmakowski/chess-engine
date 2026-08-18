@@ -1,3 +1,5 @@
+use std::num::TryFromIntError;
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum PieceType {
     Pawn,
@@ -93,25 +95,71 @@ impl std::fmt::Display for Piece {
 
 // Get all possible moves for a piece
 impl Piece {
-    #[allow(unused_variables)]
-    fn generic_movement(&self, axis: &[(i8, i8)]) -> Vec<Move> {
-        todo!()
+    fn generic_movement(&self, axises: &[(i8, i8)], board: &Board, location: usize) -> Vec<Move> {
+        let mut moves = Vec::new();
+
+        for axis in axises {
+            let index: i8 = 1;
+            let mut kill = false;
+            loop {
+                let considered_location = (axis.0 * index, axis.1 * index);
+                let considered_index_helper: Result<usize, TryFromIntError> = (location as i64
+                    + (8 * considered_location.0 + considered_location.1) as i64)
+                    .try_into();
+                let considered_index = considered_index_helper
+                    .inspect_err(|_| kill = true)
+                    .unwrap();
+
+                if kill || considered_index > 64 {
+                    break;
+                }
+
+                let piece_at_considered = board.squares[considered_index];
+
+                match piece_at_considered {
+                    Some(p) => {
+                        if p.side != self.side {
+                            moves.push(Move {
+                                start_index: location,
+                                end_index: considered_index,
+                            })
+                        }
+
+                        break;
+                    }
+                    None => moves.push(Move {
+                        start_index: location,
+                        end_index: considered_index,
+                    }),
+                }
+            }
+        }
+
+        moves
     }
 
-    pub fn get_valid_moves(&self) -> Vec<Move> {
+    pub fn get_valid_moves(&self, board: &Board, location: usize) -> Vec<Move> {
         match self.typ {
-            PieceType::Bishop => self.generic_movement(&[(1, 1), (-1, 1), (-1, -1), (1, -1)]),
-            PieceType::Rook => self.generic_movement(&[(1, 0), (0, 1), (-1, 0), (0, -1)]),
-            PieceType::Queen => self.generic_movement(&[
-                (1, 1),
-                (-1, 1),
-                (-1, -1),
-                (1, -1),
-                (1, 0),
-                (0, 1),
-                (-1, 0),
-                (0, -1),
-            ]),
+            PieceType::Bishop => {
+                self.generic_movement(&[(1, 1), (-1, 1), (-1, -1), (1, -1)], board, location)
+            }
+            PieceType::Rook => {
+                self.generic_movement(&[(1, 0), (0, 1), (-1, 0), (0, -1)], board, location)
+            }
+            PieceType::Queen => self.generic_movement(
+                &[
+                    (1, 1),
+                    (-1, 1),
+                    (-1, -1),
+                    (1, -1),
+                    (1, 0),
+                    (0, 1),
+                    (-1, 0),
+                    (0, -1),
+                ],
+                board,
+                location,
+            ),
             PieceType::King => todo!(),
             PieceType::Knight => todo!(),
             PieceType::Pawn => todo!(),
@@ -199,6 +247,10 @@ impl Board {
         self.squares[m.end_index] = self.squares[m.start_index];
         self.squares[m.start_index] = None;
     }
+
+    fn xy_to_index(x: u8, y: u8) -> usize {
+        (y * 8 + x).into()
+    }
 }
 
 // Print the board out using unicode stuff
@@ -209,7 +261,7 @@ impl std::fmt::Display for Board {
         for rank in (0..8).rev() {
             output += &format!("{} ", rank + 1);
             for file in 0..8 {
-                let index = rank * 8 + file;
+                let index = Self::xy_to_index(rank, file);
                 match self.squares[index] {
                     Some(piece) => output += &format!(" {} ", piece),
                     None => output += " □ ",

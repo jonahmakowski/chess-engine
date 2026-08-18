@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### Documentation
+
+- docs: update changelog system to better suit this project
+
 ### Features
 
 - feat: add changelog.md, cliff.toml, and tool.yaml
