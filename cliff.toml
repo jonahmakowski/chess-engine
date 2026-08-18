@@ -18,25 +18,9 @@ body = """
 {% endif %}\
 {% for group, commits in commits | group_by(attribute="group") %}
     ### {{ group | upper_first }}
-    {% for commit in commits
-    | filter(attribute="scope")
-    | sort(attribute="scope") %}
-        - *({{commit.scope}})* {{ commit.message | upper_first }}
-        {%- if commit.breaking %}
-        {% raw %}  {% endraw %}- **BREAKING**: {{commit.breaking_description}}
-        {%- endif -%}
-    {%- endfor -%}
-    {% raw %}\n{% endraw %}\
-    {%- for commit in commits %}
-        {%- if commit.scope -%}
-        {% else -%}
-            - *(No Category)* {{ commit.message | upper_first }}
-            {% if commit.breaking -%}
-            {% raw %}  {% endraw %}- **BREAKING**: {{commit.breaking_description}}
-            {% endif -%}
-        {% endif -%}
-    {% endfor -%}
-    {% raw %}\n{% endraw %}\
+    {% for commit in commits %}
+        - {{ commit.message | split(pat="\n") | first | trim_end }}\
+    {% endfor %}
 {% endfor %}\n
 """
 # A Tera template to be rendered as the changelog's footer.
@@ -47,12 +31,15 @@ footer = """
 # Remove leading and trailing whitespaces from the changelog's body.
 trim = true
 
+
 [git]
 # Parse commits according to the conventional commits specification.
 # See https://www.conventionalcommits.org
-conventional_commits = true
+conventional_commits = false
 # Exclude commits that do not match the conventional commits specification.
-filter_unconventional = true
+filter_unconventional = false
+# Split commits on newlines, treating each line as an individual commit.
+split_commits = false
 # An array of regex based parsers for extracting data from the commit message.
 # Assigns commits to groups.
 # Optionally sets the commit's scope and can decide to exclude commits from further processing.
@@ -67,6 +54,7 @@ commit_parsers = [
     { message = "^chore\\(release\\): prepare for", skip = true },
     { message = "^chore", group = "Miscellaneous Tasks" },
     { body = ".*security", group = "Security" },
+    { body = ".*", group = "Other (unconventional)" },
 ]
 # Exclude commits that are not matched by any commit parser.
 filter_commits = false
