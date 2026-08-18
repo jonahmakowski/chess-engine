@@ -138,6 +138,48 @@ impl Piece {
         moves
     }
 
+    fn single_movement(
+        &self,
+        directions: &[(i8, i8)],
+        board: &Board,
+        location: usize,
+    ) -> Vec<Move> {
+        let mut moves = Vec::new();
+
+        for dir in directions {
+            let mut kill = false;
+
+            let considered_index_helper: Result<usize, TryFromIntError> =
+                (location as i64 + (8 * dir.0 + dir.1) as i64).try_into();
+            let considered_index = considered_index_helper
+                .inspect_err(|_| kill = true)
+                .unwrap();
+
+            if kill || considered_index > 64 {
+                continue;
+            }
+
+            let piece_at_considered = board.squares[considered_index];
+
+            match piece_at_considered {
+                Some(p) => {
+                    if p.side != self.side {
+                        moves.push(Move {
+                            start_index: location,
+                            end_index: considered_index,
+                        })
+                    }
+                }
+                None => moves.push(Move {
+                    start_index: location,
+                    end_index: considered_index,
+                }),
+            }
+        }
+
+        moves
+    }
+
     pub fn get_valid_moves(&self, board: &Board, location: usize) -> Vec<Move> {
         match self.typ {
             PieceType::Bishop => {
@@ -160,8 +202,34 @@ impl Piece {
                 board,
                 location,
             ),
-            PieceType::King => todo!(),
-            PieceType::Knight => todo!(),
+            PieceType::King => self.single_movement(
+                &[
+                    (1, 1),
+                    (-1, 1),
+                    (-1, -1),
+                    (1, -1),
+                    (1, 0),
+                    (0, 1),
+                    (-1, 0),
+                    (0, -1),
+                ],
+                board,
+                location,
+            ),
+            PieceType::Knight => self.single_movement(
+                &[
+                    (2, 1),
+                    (2, -1),
+                    (-2, 1),
+                    (-2, -1),
+                    (1, 2),
+                    (-1, 2),
+                    (1, -2),
+                    (-1, -2),
+                ],
+                board,
+                location,
+            ),
             PieceType::Pawn => todo!(),
         }
     }
