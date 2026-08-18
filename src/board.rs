@@ -180,6 +180,80 @@ impl Piece {
         moves
     }
 
+    fn pawn_movement(&self, board: &Board, location: usize) -> Vec<Move> {
+        let mut moves = Vec::new();
+
+        // Starting position two moves up
+        if (Board::index_to_xy(location).1 == 1 && self.side == Side::White)
+            || (Board::index_to_xy(location).1 == 6 && self.side == Side::Black)
+        {
+            let new_location = if self.side == Side::White {
+                location + 2
+            } else {
+                location - 2
+            };
+            let two_up = board.squares[new_location];
+
+            if two_up.is_none() {
+                moves.push(Move {
+                    start_index: location,
+                    end_index: new_location,
+                })
+            }
+        }
+
+        // Moving forward
+        let new_location = if self.side == Side::White {
+            location + 1
+        } else {
+            location - 1
+        };
+
+        let up_one = board.squares[new_location];
+
+        if up_one.is_none() {
+            moves.push(Move {
+                start_index: location,
+                end_index: new_location,
+            })
+        }
+
+        // Attacking
+        let attack1_new_location = if self.side == Side::White {
+            location + 9
+        } else {
+            location - 9
+        };
+        let attack2_new_location = if self.side == Side::White {
+            location + 7
+        } else {
+            location - 7
+        };
+
+        let attack1 = board.squares[attack1_new_location];
+        let attack2 = board.squares[attack2_new_location];
+
+        if let Some(p) = attack1
+            && p.side != self.side
+        {
+            moves.push(Move {
+                start_index: location,
+                end_index: attack1_new_location,
+            })
+        }
+
+        if let Some(p) = attack2
+            && p.side != self.side
+        {
+            moves.push(Move {
+                start_index: location,
+                end_index: attack2_new_location,
+            })
+        }
+
+        moves
+    }
+
     pub fn get_valid_moves(&self, board: &Board, location: usize) -> Vec<Move> {
         match self.typ {
             PieceType::Bishop => {
@@ -317,7 +391,11 @@ impl Board {
     }
 
     fn xy_to_index(x: u8, y: u8) -> usize {
-        (y * 8 + x).into()
+        (x * 8 + y).into()
+    }
+
+    fn index_to_xy(index: usize) -> (u8, u8) {
+        ((index as u8 / 8), index as u8 % 8)
     }
 }
 
