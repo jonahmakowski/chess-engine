@@ -350,7 +350,7 @@ impl Piece {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-enum Side {
+pub enum Side {
     White,
     Black,
 }
@@ -405,6 +405,20 @@ impl Board {
             squares,
             turn: Side::White,
         }
+    }
+
+    pub fn get_all_moves(&self, side: Option<Side>) -> Vec<Move> {
+        let player = if let Some(s) = side { s } else { self.turn };
+
+        let mut moves = Vec::new();
+        for (index, square) in self.squares.iter().enumerate() {
+            if let Some(piece) = square
+                && piece.side == player
+            {
+                moves.extend(piece.get_valid_moves(self, index));
+            }
+        }
+        moves
     }
 }
 
@@ -466,7 +480,26 @@ impl std::fmt::Display for Board {
     }
 }
 
-struct Move {
-    start_index: usize,
-    end_index: usize,
+pub struct Move {
+    pub start_index: usize,
+    pub end_index: usize,
+}
+
+impl std::fmt::Display for Move {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let (start_x, start_y): (u8, u8) = Board::index_to_xy(self.start_index);
+        let (end_x, end_y): (u8, u8) = Board::index_to_xy(self.end_index);
+
+        let start_x_letter = (b'A' + start_x) as char;
+        let end_x_letter = (b'A' + end_x) as char;
+
+        write!(
+            f,
+            "{}{} to {}{}",
+            start_x_letter,
+            start_y + 1,
+            end_x_letter,
+            end_y + 1
+        )
+    }
 }

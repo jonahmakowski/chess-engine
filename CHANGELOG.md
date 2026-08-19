@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### Bug Fixes
+
+- fix: correct board coordinate logic and implement pawn movement
+
 ### Documentation
 
 - docs: update changelog system to better suit this project
