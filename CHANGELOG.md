@@ -17,6 +17,7 @@ All notable changes to this project will be documented in this file.
 - feat: add changelog.md, cliff.toml, and tool.yaml
 - feat: add chess engine project scaffold
 - feat: add pawn movement logic
+- feat: add get_all_moves method and expose Move type for move generation
 
 ### Other (unconventional)
 

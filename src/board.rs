@@ -1,4 +1,5 @@
-use num_traits::PrimInt;
+use num_traits::{FromPrimitive, PrimInt};
+use std::ops::AddAssign;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum PieceType {
@@ -11,14 +12,14 @@ enum PieceType {
 }
 
 impl PieceType {
-    fn get_value(&self) -> u16 {
+    fn get_value<T: PrimInt + FromPrimitive>(&self) -> T {
         match self {
-            PieceType::Pawn => 100,
-            PieceType::Knight => 320,
-            PieceType::Bishop => 330,
-            PieceType::Rook => 500,
-            PieceType::Queen => 900,
-            PieceType::King => 60_000,
+            PieceType::Pawn => T::from_i32(100).unwrap(),
+            PieceType::Knight => T::from_i32(320).unwrap(),
+            PieceType::Bishop => T::from_i32(330).unwrap(),
+            PieceType::Rook => T::from_i32(500).unwrap(),
+            PieceType::Queen => T::from_i32(900).unwrap(),
+            PieceType::King => T::from_i32(60_000).unwrap(),
         }
     }
 }
@@ -196,13 +197,21 @@ impl Piece {
         let mut moves = Vec::new();
 
         // Moving forward
-        let new_location = if self.side == Side::White {
+        let mut can_move_one_up = true;
+        let new_location = if location as i32 - 8 < 0 || location as i32 + 8 >= 64 {
+            can_move_one_up = false;
+            0
+        } else if self.side == Side::White {
             location + 8
         } else {
             location - 8
         };
 
-        let up_one = board.squares[new_location];
+        let up_one = if can_move_one_up {
+            board.squares[new_location]
+        } else {
+            None
+        };
 
         if up_one.is_none() {
             moves.push(Move {
@@ -294,6 +303,17 @@ impl Piece {
         moves
     }
 
+    pub fn check_pawn_promos(&mut self, location: usize) {
+        if let PieceType::Pawn = self.typ {
+            let (y_location, _): (u8, u8) = Board::index_to_xy(location);
+            if (y_location == 7 && self.side == Side::White)
+                || (y_location == 0 && self.side == Side::Black)
+            {
+                self.typ = PieceType::Queen;
+            }
+        }
+    }
+
     pub fn get_valid_moves(&self, board: &Board, location: usize) -> Vec<Move> {
         match self.typ {
             PieceType::Bishop => {
@@ -353,6 +373,29 @@ impl Piece {
 pub enum Side {
     White,
     Black,
+}
+
+impl Side {
+    pub fn opposite(&self) -> Self {
+        match self {
+            Self::White => Self::Black,
+            Self::Black => Self::White,
+        }
+    }
+}
+
+impl std::fmt::Display for Side {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            if *self == Self::White {
+                "White"
+            } else {
+                "Black"
+            }
+        )
+    }
 }
 
 #[derive(Clone, PartialEq)]
@@ -420,28 +463,39 @@ impl Board {
         }
         moves
     }
+
+    pub fn copy_with_move(&self, m: Move) -> Self {
+        let mut new = self.clone();
+        new.apply_move(m);
+        new
+    }
 }
 
 impl Board {
     // Get the score according to the value of the piece for a side
-    fn get_score(&self, side: Side) -> u32 {
-        let mut score: u32 = 0;
+    pub fn get_score<T: PrimInt + FromPrimitive + AddAssign>(&self, side: Side) -> T {
+        let mut score = T::zero();
 
         for square in &self.squares {
             if let Some(piece) = square
                 && piece.side == side
             {
-                score += piece.typ.get_value() as u32;
+                score += piece.typ.get_value();
             }
         }
 
-        score
+        T::from(score).unwrap()
     }
 
     // Move a piece
-    fn apply_move(&mut self, m: Move) {
+    pub fn apply_move(&mut self, m: Move) {
         self.squares[m.end_index] = self.squares[m.start_index];
         self.squares[m.start_index] = None;
+        self.turn = self.turn.opposite();
+
+        if let Some(mut p) = self.squares[m.end_index] {
+            p.check_pawn_promos(m.end_index);
+        }
     }
 
     fn xy_to_index<T: PrimInt>(x: T, y: T) -> usize {
@@ -480,6 +534,7 @@ impl std::fmt::Display for Board {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct Move {
     pub start_index: usize,
     pub end_index: usize,
