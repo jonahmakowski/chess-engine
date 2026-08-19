@@ -1,4 +1,4 @@
-use std::num::TryFromIntError;
+use num_traits::PrimInt;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum PieceType {
@@ -97,22 +97,27 @@ impl std::fmt::Display for Piece {
 impl Piece {
     fn generic_movement(&self, axises: &[(i8, i8)], board: &Board, location: usize) -> Vec<Move> {
         let mut moves = Vec::new();
+        let current_location: (i8, i8) = Board::index_to_xy(location);
 
         for axis in axises {
-            let index: i8 = 1;
-            let mut kill = false;
+            let mut index: i8 = 1;
             loop {
-                let considered_location = (axis.0 * index, axis.1 * index);
-                let considered_index_helper: Result<usize, TryFromIntError> = (location as i64
-                    + (8 * considered_location.0 + considered_location.1) as i64)
-                    .try_into();
-                let considered_index = considered_index_helper
-                    .inspect_err(|_| kill = true)
-                    .unwrap();
+                let considered_delta = (axis.0 * index, axis.1 * index);
+                let considered_location: (i8, i8) = (
+                    considered_delta.0 + current_location.0,
+                    considered_delta.1 + current_location.1,
+                );
 
-                if kill || considered_index > 64 {
+                if considered_location.0 > 7
+                    || considered_location.0 < 0
+                    || considered_location.1 > 7
+                    || considered_location.1 < 0
+                {
                     break;
                 }
+
+                let considered_index =
+                    Board::xy_to_index(considered_location.0, considered_location.1);
 
                 let piece_at_considered = board.squares[considered_index];
 
@@ -132,6 +137,8 @@ impl Piece {
                         end_index: considered_index,
                     }),
                 }
+
+                index += 1;
             }
         }
 
@@ -144,20 +151,23 @@ impl Piece {
         board: &Board,
         location: usize,
     ) -> Vec<Move> {
+        let current_location: (i8, i8) = Board::index_to_xy(location);
+
         let mut moves = Vec::new();
 
         for dir in directions {
-            let mut kill = false;
+            let considered_location: (i8, i8) =
+                (dir.0 + current_location.0, dir.1 + current_location.1);
 
-            let considered_index_helper: Result<usize, TryFromIntError> =
-                (location as i64 + (8 * dir.0 + dir.1) as i64).try_into();
-            let considered_index = considered_index_helper
-                .inspect_err(|_| kill = true)
-                .unwrap();
-
-            if kill || considered_index > 64 {
+            if considered_location.0 > 7
+                || considered_location.0 < 0
+                || considered_location.1 > 7
+                || considered_location.1 < 0
+            {
                 continue;
             }
+
+            let considered_index = Board::xy_to_index(considered_location.0, considered_location.1);
 
             let piece_at_considered = board.squares[considered_index];
 
@@ -181,32 +191,15 @@ impl Piece {
     }
 
     fn pawn_movement(&self, board: &Board, location: usize) -> Vec<Move> {
+        let current_location: (i32, i32) = Board::index_to_xy(location);
+
         let mut moves = Vec::new();
-
-        // Starting position two moves up
-        if (Board::index_to_xy(location).1 == 1 && self.side == Side::White)
-            || (Board::index_to_xy(location).1 == 6 && self.side == Side::Black)
-        {
-            let new_location = if self.side == Side::White {
-                location + 2
-            } else {
-                location - 2
-            };
-            let two_up = board.squares[new_location];
-
-            if two_up.is_none() {
-                moves.push(Move {
-                    start_index: location,
-                    end_index: new_location,
-                })
-            }
-        }
 
         // Moving forward
         let new_location = if self.side == Side::White {
-            location + 1
+            location + 8
         } else {
-            location - 1
+            location - 8
         };
 
         let up_one = board.squares[new_location];
@@ -218,37 +211,84 @@ impl Piece {
             })
         }
 
-        // Attacking
-        let attack1_new_location = if self.side == Side::White {
-            location + 9
-        } else {
-            location - 9
-        };
-        let attack2_new_location = if self.side == Side::White {
-            location + 7
-        } else {
-            location - 7
-        };
-
-        let attack1 = board.squares[attack1_new_location];
-        let attack2 = board.squares[attack2_new_location];
-
-        if let Some(p) = attack1
-            && p.side != self.side
+        // Starting position two moves up
+        if ((Board::index_to_xy::<u8>(location).1 == 1 && self.side == Side::White)
+            || (Board::index_to_xy::<u8>(location).1 == 6 && self.side == Side::Black))
+            && up_one.is_none()
         {
-            moves.push(Move {
-                start_index: location,
-                end_index: attack1_new_location,
-            })
+            let new_location = if self.side == Side::White {
+                location + 16
+            } else {
+                location - 16
+            };
+            let two_up = board.squares[new_location];
+
+            if two_up.is_none() {
+                moves.push(Move {
+                    start_index: location,
+                    end_index: new_location,
+                })
+            }
         }
 
-        if let Some(p) = attack2
-            && p.side != self.side
+        // Attacking
+        let attack1_delta = if self.side == Side::White {
+            (1, 1)
+        } else {
+            (1, -1)
+        };
+        let attack2_delta = if self.side == Side::White {
+            (-1, 1)
+        } else {
+            (-1, -1)
+        };
+
+        let attack1_new_location = (
+            attack1_delta.0 + current_location.0,
+            attack1_delta.1 + current_location.1,
+        );
+
+        let attack2_new_location = (
+            attack2_delta.0 + current_location.0,
+            attack2_delta.1 + current_location.1,
+        );
+
+        if attack1_new_location.0 <= 7
+            && attack1_new_location.0 >= 0
+            && attack1_new_location.1 <= 7
+            && attack1_new_location.1 >= 0
         {
-            moves.push(Move {
-                start_index: location,
-                end_index: attack2_new_location,
-            })
+            let attack_index = Board::xy_to_index(attack1_new_location.0, attack1_new_location.1);
+
+            let attack = board.squares[attack_index];
+
+            if let Some(p) = attack
+                && p.side != self.side
+            {
+                moves.push(Move {
+                    start_index: location,
+                    end_index: attack_index,
+                })
+            }
+        }
+
+        if attack2_new_location.0 <= 7
+            && attack2_new_location.0 >= 0
+            && attack2_new_location.1 <= 7
+            && attack2_new_location.1 >= 0
+        {
+            let attack_index = Board::xy_to_index(attack2_new_location.0, attack2_new_location.1);
+
+            let attack = board.squares[attack_index];
+
+            if let Some(p) = attack
+                && p.side != self.side
+            {
+                moves.push(Move {
+                    start_index: location,
+                    end_index: attack_index,
+                })
+            }
         }
 
         moves
@@ -304,7 +344,7 @@ impl Piece {
                 board,
                 location,
             ),
-            PieceType::Pawn => todo!(),
+            PieceType::Pawn => self.pawn_movement(board, location),
         }
     }
 }
@@ -390,12 +430,15 @@ impl Board {
         self.squares[m.start_index] = None;
     }
 
-    fn xy_to_index(x: u8, y: u8) -> usize {
-        (x * 8 + y).into()
+    fn xy_to_index<T: PrimInt>(x: T, y: T) -> usize {
+        x.to_usize().unwrap() + y.to_usize().unwrap() * 8
     }
 
-    fn index_to_xy(index: usize) -> (u8, u8) {
-        ((index as u8 / 8), index as u8 % 8)
+    fn index_to_xy<T: PrimInt>(index: usize) -> (T, T) {
+        (
+            T::from(index % 8).expect("Impossibly big number"),
+            T::from(index / 8).expect("Impossibly big number"),
+        )
     }
 }
 
@@ -407,7 +450,7 @@ impl std::fmt::Display for Board {
         for rank in (0..8).rev() {
             output += &format!("{} ", rank + 1);
             for file in 0..8 {
-                let index = Self::xy_to_index(rank, file);
+                let index = Self::xy_to_index(file, rank);
                 match self.squares[index] {
                     Some(piece) => output += &format!(" {} ", piece),
                     None => output += " □ ",
