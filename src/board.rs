@@ -498,11 +498,11 @@ impl Board {
         }
     }
 
-    fn xy_to_index<T: PrimInt>(x: T, y: T) -> usize {
+    pub fn xy_to_index<T: PrimInt>(x: T, y: T) -> usize {
         x.to_usize().unwrap() + y.to_usize().unwrap() * 8
     }
 
-    fn index_to_xy<T: PrimInt>(index: usize) -> (T, T) {
+    pub fn index_to_xy<T: PrimInt>(index: usize) -> (T, T) {
         (
             T::from(index % 8).expect("Impossibly big number"),
             T::from(index / 8).expect("Impossibly big number"),
@@ -534,7 +534,7 @@ impl std::fmt::Display for Board {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub struct Move {
     pub start_index: usize,
     pub end_index: usize,
